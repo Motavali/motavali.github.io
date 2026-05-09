@@ -184,7 +184,6 @@
         .btn-group a:hover, .btn-group button:hover {
             background: #c73650;
         }
-        /* ✅ استایل دیباگ */
         .debug-info {
             background: #1a1a2e;
             padding: 10px;
@@ -400,15 +399,30 @@
                     sha = checkData.sha;
                     debug(`SHA فایل: ${sha}`);
                     
-                    if (checkData.content) {
-                        const decoded = base64ToUtf8(checkData.content.replace(/\n/g, ''));
-                        existingData = JSON.parse(decoded) || [];
-                        debug(`داده‌های موجود: ${existingData.length} آیتم`);
+                    // ✅ بررسی وجود content
+                    if (checkData.content && checkData.content.trim() !== '') {
+                        debug(`محتوا پیدا شد، طول: ${checkData.content.length}`);
+                        
+                        try {
+                            const decoded = base64ToUtf8(checkData.content.replace(/\n/g, ''));
+                            debug(`محتوای decode شده: ${decoded.substring(0, 50)}...`);
+                            
+                            if (decoded.trim() !== '') {
+                                existingData = JSON.parse(decoded);
+                                debug(`داده‌های موجود: ${existingData.length} آیتم`);
+                            } else {
+                                debug('محتوا خالی است');
+                            }
+                        } catch (decodeError) {
+                            debug(`خطا در decode: ${decodeError.message}`);
+                            debug(`محتوای خام: ${checkData.content.substring(0, 100)}`);
+                        }
+                    } else {
+                        debug('فایل خالی است یا content ندارد');
                     }
                 } else if (checkResponse.status === 404) {
                     debug('فایل وجود ندارد، ایجاد می‌شود...');
                 } else {
-                    // بررسی متن خطا
                     const errorText = await checkResponse.text();
                     debug(`خطای بررسی: ${errorText}`);
                     throw new Error(`خطای API (${checkResponse.status}): ${errorText.substring(0, 100)}`);
