@@ -1,1 +1,436 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ذخیره در GitHub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #16213e;
+            padding: 40px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #e94560;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+            font-family: Tahoma, Arial, sans-serif;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        textarea {
+            min-height: 200px;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #c73650;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #aaa;
+            font-size: 13px;
+        }
+        .info code {
+            color: #e94560;
+            direction: ltr;
+            display: block;
+        }
+        .saved-list {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .saved-list h3 {
+            color: #e94560;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .saved-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #16213e;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .saved-item:hover {
+            background: #1a1a2e;
+        }
+        .saved-item span {
+            color: #fff;
+            font-size: 13px;
+        }
+        .saved-item .delete-btn {
+            color: #f87171;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+        }
+        .no-saved {
+            color: #666;
+            text-align: center;
+            font-size: 13px;
+        }
+        .result {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: #064e3b;
+            color: #4ade80;
+            display: block;
+        }
+        .result.error {
+            background: #7f1d1d;
+            color: #f87171;
+            display: block;
+        }
+        .json-preview {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            direction: ltr;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 15px 0;
+            color: #aaa;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn-group a, .btn-group button {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: #e94560;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-group a:hover, .btn-group button:hover {
+            background: #c73650;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 ذخیره متن در GitHub</h1>
+        
+        <div class="info">
+            <strong>نکته:</strong> اطلاعات شما در مرورگر ذخیره می‌شود.
+            <br>
+            <code>GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)</code>
+        </div>
 
+        <div class="saved-list">
+            <h3>📋 حساب‌های ذخیره شده</h3>
+            <div id="savedItems">
+                <p class="no-saved">هنوز حسابی ذخیره نشده</p>
+            </div>
+        </div>
+
+        <form id="mainForm">
+            <div class="form-group">
+                <label>GitHub Username</label>
+                <input type="text" id="username" placeholder="octocat" required>
+            </div>
+
+            <div class="form-group">
+                <label>Repository Name</label>
+                <input type="text" id="repo" placeholder="my-notes" required>
+            </div>
+
+            <div class="form-group">
+                <label>Personal Access Token</label>
+                <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxx" required>
+            </div>
+
+            <div class="form-group">
+                <label>نام شما</label>
+                <input type="text" id="name" placeholder="علی" required>
+            </div>
+
+            <div class="form-group">
+                <label>متن شما</label>
+                <textarea id="content" placeholder="متن خود را اینجا بنویسید..." required></textarea>
+            </div>
+
+            <button type="submit" id="submitBtn">📤 ارسال به GitHub</button>
+        </form>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const FILE_PATH = 'notes.json';
+
+        // ✅ تابع تبدیل رشته به Base64 (پشتیبانی از UTF-8)
+        function utf8ToBase64(str) {
+            return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+        }
+
+        // ✅ تابع تبدیل Base64 به رشته
+        function base64ToUtf8(str) {
+            return new TextDecoder().decode(Uint8Array.from(atob(str), c => c.charCodeAt(0)));
+        }
+
+        // ✅ بارگذاری اطلاعات ذخیره شده
+        function loadSavedData() {
+            const saved = JSON.parse(localStorage.getItem('githubAccounts') || '[]');
+            const container = document.getElementById('savedItems');
+            
+            if (saved.length === 0) {
+                container.innerHTML = '<p class="no-saved">هنوز حسابی ذخیره نشده</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            saved.forEach((account, index) => {
+                const item = document.createElement('div');
+                item.className = 'saved-item';
+                item.innerHTML = `
+                    <span>${account.username} / ${account.repo}</span>
+                    <button class="delete-btn" onclick="deleteAccount(${index})">✕</button>
+                `;
+                item.onclick = (e) => {
+                    if (e.target.className !== 'delete-btn') {
+                        loadAccount(account);
+                    }
+                };
+                container.appendChild(item);
+            });
+        }
+
+        // ✅ بارگذاری یک حساب
+        function loadAccount(account) {
+            document.getElementById('username').value = account.username;
+            document.getElementById('repo').value = account.repo;
+            document.getElementById('token').value = account.token;
+            document.getElementById('name').value = account.name || '';
+        }
+
+        // ✅ حذف یک حساب
+        function deleteAccount(index) {
+            const saved = JSON.parse(localStorage.getItem('githubAccounts') || '[]');
+            saved.splice(index, 1);
+            localStorage.setItem('githubAccounts', JSON.stringify(saved));
+            loadSavedData();
+        }
+
+        // ✅ ذخیره حساب
+        function saveAccount() {
+            const username = document.getElementById('username').value;
+            const repo = document.getElementById('repo').value;
+            const token = document.getElementById('token').value;
+            const name = document.getElementById('name').value;
+
+            if (!username || !repo || !token) return;
+
+            const saved = JSON.parse(localStorage.getItem('githubAccounts') || '[]');
+            const exists = saved.some(a => a.username === username && a.repo === repo);
+
+            if (!exists) {
+                saved.push({ username, repo, token, name });
+                localStorage.setItem('githubAccounts', JSON.stringify(saved));
+                loadSavedData();
+            }
+        }
+
+        // ✅ نمایش نتیجه
+        function showResult(success, message, htmlUrl = null, jsonPreview = null) {
+            const result = document.getElementById('result');
+            result.className = success ? 'result success' : 'result error';
+            
+            let html = `<p>${message}</p>`;
+            
+            if (jsonPreview) {
+                html += `<div class="json-preview">${jsonPreview}</div>`;
+            }
+            
+            if (htmlUrl) {
+                html += `<div class="btn-group">
+                    <a href="${htmlUrl}" target="_blank">👁 مشاهده در GitHub</a>
+                    <button onclick="location.reload()">🔙 بازگشت</button>
+                </div>`;
+            }
+            
+            result.innerHTML = html;
+            result.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ✅ ارسال فرم
+        document.getElementById('mainForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const repo = document.getElementById('repo').value;
+            const token = document.getElementById('token').value;
+            const name = document.getElementById('name').value;
+            const content = document.getElementById('content').value;
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ در حال ارسال...';
+            
+            // ذخیره حساب
+            saveAccount();
+            
+            try {
+                // ۱. بررسی وجود فایل
+                const checkResponse = await fetch(
+                    `https://api.github.com/repos/${username}/${repo}/contents/${FILE_PATH}`,
+                    {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+                
+                let existingData = [];
+                let sha = null;
+                
+                if (checkResponse.ok) {
+                    const checkData = await checkResponse.json();
+                    sha = checkData.sha;
+                    
+                    if (checkData.content) {
+                        // ✅ استفاده از تابع درست برای decode
+                        const decoded = base64ToUtf8(checkData.content.replace(/\n/g, ''));
+                        existingData = JSON.parse(decoded) || [];
+                    }
+                } else if (checkResponse.status !== 404) {
+                    throw new Error('خطا در بررسی فایل');
+                }
+                
+                // ۲. اضافه کردن متن جدید
+                const now = new Date();
+                const newEntry = {
+                    username: username,
+                    name: name,
+                    text: content,
+                    date: now.toLocaleString('fa-IR'),
+                    timestamp: now.getTime()
+                };
+                
+                existingData.push(newEntry);
+                
+                // ۳. تبدیل JSON به رشته
+                const jsonString = JSON.stringify(existingData, null, 2);
+                
+                // ۴. ارسال به GitHub با Base64 درست
+                const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${FILE_PATH}`;
+                const apiResponse = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Update notes - ${newEntry.date}`,
+                        content: utf8ToBase64(jsonString),  // ✅ استفاده از تابع درست
+                        sha: sha
+                    })
+                });
+                
+                if (apiResponse.ok) {
+                    const data = await apiResponse.json();
+                    showResult(
+                        true,
+                        `✅ با موفقیت ذخیره شد! (تعداد: ${existingData.length})`,
+                        data.html_url,
+                        jsonString
+                    );
+                } else {
+                    const error = await apiResponse.json();
+                    throw new Error(error.message || 'خطا در ذخیره');
+                }
+                
+            } catch (error) {
+                showResult(false, `❌ خطا: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 ارسال به GitHub';
+            }
+        });
+
+        // بارگذاری اولیه
+        loadSavedData();
+    </script>
+</body>
+</html>
