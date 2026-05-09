@@ -184,6 +184,19 @@
         .btn-group a:hover, .btn-group button:hover {
             background: #c73650;
         }
+        /* ✅ استایل دیباگ */
+        .debug-info {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 11px;
+            direction: ltr;
+            text-align: left;
+            color: #888;
+            max-height: 100px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -233,6 +246,7 @@
         </form>
 
         <div id="result" class="result"></div>
+        <div id="debug" class="debug-info" style="display:none;"></div>
     </div>
 
     <script>
@@ -246,6 +260,14 @@
         // ✅ تابع تبدیل Base64 به رشته
         function base64ToUtf8(str) {
             return new TextDecoder().decode(Uint8Array.from(atob(str), c => c.charCodeAt(0)));
+        }
+
+        // ✅ نمایش پیام دیباگ
+        function debug(msg) {
+            const el = document.getElementById('debug');
+            el.style.display = 'block';
+            el.innerHTML += msg + '<br>';
+            console.log(msg);
         }
 
         // ✅ بارگذاری اطلاعات ذخیره شده
@@ -336,11 +358,14 @@
         document.getElementById('mainForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const repo = document.getElementById('repo').value;
-            const token = document.getElementById('token').value;
-            const name = document.getElementById('name').value;
-            const content = document.getElementById('content').value;
+            const username = document.getElementById('username').value.trim();
+            const repo = document.getElementById('repo').value.trim();
+            const token = document.getElementById('token').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const content = document.getElementById('content').value.trim();
+            
+            // پاک کردن دیباگ قبلی
+            document.getElementById('debug').innerHTML = '';
             
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
@@ -350,16 +375,22 @@
             saveAccount();
             
             try {
+                debug(`شروع: ${username}/${repo}`);
+                
                 // ۱. بررسی وجود فایل
+                debug('مرحله ۱: بررسی فایل موجود...');
                 const checkResponse = await fetch(
                     `https://api.github.com/repos/${username}/${repo}/contents/${FILE_PATH}`,
                     {
                         headers: {
                             'Authorization': `token ${token}`,
-                            'Accept': 'application/vnd.github.v3+json'
+                            'Accept': 'application/vnd.github.v3+json',
+                            'User-Agent': 'GitHub-Writer-App'
                         }
                     }
                 );
+                
+                debug(`پاسخ بررسی: ${checkResponse.status}`);
                 
                 let existingData = [];
                 let sha = null;
@@ -367,14 +398,20 @@
                 if (checkResponse.ok) {
                     const checkData = await checkResponse.json();
                     sha = checkData.sha;
+                    debug(`SHA فایل: ${sha}`);
                     
                     if (checkData.content) {
-                        // ✅ استفاده از تابع درست برای decode
                         const decoded = base64ToUtf8(checkData.content.replace(/\n/g, ''));
                         existingData = JSON.parse(decoded) || [];
+                        debug(`داده‌های موجود: ${existingData.length} آیتم`);
                     }
-                } else if (checkResponse.status !== 404) {
-                    throw new Error('خطا در بررسی فایل');
+                } else if (checkResponse.status === 404) {
+                    debug('فایل وجود ندارد، ایجاد می‌شود...');
+                } else {
+                    // بررسی متن خطا
+                    const errorText = await checkResponse.text();
+                    debug(`خطای بررسی: ${errorText}`);
+                    throw new Error(`خطای API (${checkResponse.status}): ${errorText.substring(0, 100)}`);
                 }
                 
                 // ۲. اضافه کردن متن جدید
@@ -388,28 +425,39 @@
                 };
                 
                 existingData.push(newEntry);
+                debug(`آیتم جدید اضافه شد. کل: ${existingData.length}`);
                 
                 // ۳. تبدیل JSON به رشته
                 const jsonString = JSON.stringify(existingData, null, 2);
+                const base64Content = utf8ToBase64(jsonString);
+                debug(`محتوای JSON آماده شد (${base64Content.length} کاراکتر)`);
                 
-                // ۴. ارسال به GitHub با Base64 درست
+                // ۴. ارسال به GitHub
+                debug('مرحله ۲: ارسال به GitHub...');
                 const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${FILE_PATH}`;
                 const apiResponse = await fetch(apiUrl, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `token ${token}`,
                         'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'GitHub-Writer-App'
                     },
                     body: JSON.stringify({
                         message: `Update notes - ${newEntry.date}`,
-                        content: utf8ToBase64(jsonString),  // ✅ استفاده از تابع درست
+                        content: base64Content,
                         sha: sha
                     })
                 });
                 
+                debug(`پاسخ ارسال: ${apiResponse.status}`);
+                
+                // بررسی پاسخ
+                const responseText = await apiResponse.text();
+                debug(`متن پاسخ: ${responseText.substring(0, 200)}...`);
+                
                 if (apiResponse.ok) {
-                    const data = await apiResponse.json();
+                    const data = JSON.parse(responseText);
                     showResult(
                         true,
                         `✅ با موفقیت ذخیره شد! (تعداد: ${existingData.length})`,
@@ -417,11 +465,18 @@
                         jsonString
                     );
                 } else {
-                    const error = await apiResponse.json();
-                    throw new Error(error.message || 'خطا در ذخیره');
+                    let errorMsg = `خطای API (${apiResponse.status})`;
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        errorMsg = errorData.message || errorMsg;
+                    } catch (e) {
+                        errorMsg += ': ' + responseText.substring(0, 100);
+                    }
+                    throw new Error(errorMsg);
                 }
                 
             } catch (error) {
+                debug(`خطای نهایی: ${error.message}`);
                 showResult(false, `❌ خطا: ${error.message}`);
             } finally {
                 submitBtn.disabled = false;
