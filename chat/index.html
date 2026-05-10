@@ -123,15 +123,23 @@
         }
         
         .sender-avatar {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, #6ab2f2, #4a8ec9);
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 16px;
+            color: white;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .sender-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
         .sender-info {
@@ -299,23 +307,60 @@
 
     <script>
         // ============================================
-        // تنظیمات - اینجا لینک‌ها رو وارد کن
+        // تنظیمات
         // ============================================
         const CONFIG = {
             jsonUrls: [
                         'https://raw.githubusercontent.com/Motavali/HTCHAT/refs/heads/main/notes.json',
-                'https://raw.githubusercontent.com/LA-Random/-/refs/heads/main/notes.json',
+                        'https://raw.githubusercontent.com/LA-Random/-/refs/heads/main/notes.json',
                         'https://raw.githubusercontent.com/Mehdi-M/Mehdi/refs/heads/main/notes.json'
-                // لینک‌های بیشتر اضافه کن
             ],
             maxMessages: 100,
             refreshInterval: 30000 // رفرش خودکار هر 30 ثانیه (0 برای غیرفعال)
         };
 
         // ============================================
+        // رنگ‌های پیش‌فرض برای آواتار
+        // ============================================
+        const AVATAR_COLORS = [
+            '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', 
+            '#1abc9c', '#3498db', '#9b59b6', '#e91e63',
+            '#00bcd4', '#ff5722', '#795548', '#607d8b'
+        ];
+
+        // ============================================
         // توابع
         // ============================================
         
+        // تولید رنگ بر اساس نام کاربر
+        function getColorFromName(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+        }
+
+        // لینک آواتار گیت‌هاب
+        function getAvatarUrl(username) {
+            if (!username) return null;
+            return `https://avatars.githubusercontent.com/${encodeURIComponent(username)}?size=80`;
+        }
+
+        // گرفتن حرف اول نام
+        function getFirstChar(name) {
+            if (!name) return '؟';
+            return name.charAt(0).toUpperCase();
+        }
+
+        // escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         async function fetchJson(url) {
             try {
                 const response = await fetch(url);
@@ -348,16 +393,6 @@
             return allMessages.slice(-CONFIG.maxMessages);
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function getFirstChar(name) {
-            return name.charAt(0);
-        }
-
         function renderMessages(messages) {
             const container = document.getElementById('messagesContainer');
             
@@ -386,12 +421,16 @@
                 const text = escapeHtml(msg.text || '');
                 const date = escapeHtml(msg.date || '');
                 const firstChar = getFirstChar(name);
+                const avatarColor = getColorFromName(username || name);
+                const avatarUrl = getAvatarUrl(username);
                 
                 html += `
                     <div class="message">
                         <div class="message-header">
                             <div class="message-sender">
-                                <div class="sender-avatar">${firstChar}</div>
+                                <div class="sender-avatar" style="background: ${avatarColor};" id="avatar-${Date.now()}-${Math.random()}">
+                                    ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" onerror="this.parentElement.textContent='${firstChar}'">` : firstChar}
+                                </div>
                                 <div class="sender-info">
                                     <span class="sender-name">${name} (${username})</span>
                                 </div>
