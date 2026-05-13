@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ارسال پیام به HT.json (ذخیره تنظیمات)</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #17212b; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .card { background: #182533; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid #2b3a4d; }
+    h2 { text-align: center; margin-bottom: 20px; color: #6ab2f2; font-size: 18px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 6px; font-size: 13px; color: #ccc; }
+    input, textarea { width: 100%; padding: 12px; background: #0e1621; border: 1px solid #2b3a4d; border-radius: 8px; color: #fff; font-family: inherit; outline: none; }
+    input:focus, textarea:focus { border-color: #6ab2f2; }
+    textarea { min-height: 100px; resize: vertical; }
+    .file-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 2px dashed #2b3a4d; border-radius: 8px; background: #0e1621; color: #6b7d8f; cursor: pointer; transition: 0.2s; text-align: center; }
+    .file-label:hover { border-color: #6ab2f2; color: #6ab2f2; }
+    input[type="file"] { display: none; }
+    .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #6ab2f2, #4a8ec9); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { background: #3a4a5a; cursor: not-allowed; }
+    #status { margin-top: 15px; text-align: center; font-size: 13px; min-height: 20px; }
+    .success { color: #4ade80; }
+    .error { color: #f44336; }
+    /* Preview Image */
+    #preview { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; display: none; }
+    
+    /* Toggle settings visibility */
+    .settings-toggle {
+        text-align: center;
+        font-size: 12px;
+        color: #6ab2f2;
+        cursor: pointer;
+        margin-bottom: 10px;
+        text-decoration: underline;
+    }
+    .settings-box {
+        display: none; /* Hidden by default */
+        background: #0e1621;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #2b3a4d;
+    }
+    .settings-box.active {
+        display: block;
+    }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📤 ارسال به ht.json</h2>
+    
+    <div class="form-group">
+        <label>نام شما</label>
+        <input type="text" id="name" placeholder="مثلا: علی">
+    </div>
+
+    <div class="form-group">
+        <label>متن پیام</label>
+        <textarea id="content" placeholder="پیام خود را بنویسید..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>تصویر (اختیاری)</label>
+        <label for="imageInput" class="file-label">
+            <span id="fileText">انتخاب تصویر...</span>
+        </label>
+        <input type="file" id="imageInput" accept="image/*">
+        <img id="preview" src="" alt="پیش‌نمایش">
+    </div>
+
+    <div class="settings-toggle" onclick="toggleSettings()">⚙️ تنظیمات گیت‌هاب (برای تغییر کلیک کنید)</div>
+    
+    <div class="settings-box" id="settingsBox">
+        <div class="form-group">
+            <label>نام کاربری گیت‌هاب</label>
+            <input type="text" id="username" placeholder="username">
+        </div>
+        <div class="form-group">
+            <label>نام مخزن (Repository)</label>
+            <input type="text" id="repo" placeholder="repo-name">
+        </div>
+        <div class="form-group">
+            <label>توکن شخصی (Personal Access Token)</label>
+            <input type="password" id="token" placeholder="ghp_xxxxxx">
+        </div>
+        <div style="font-size: 11px; color: #6b7d8f; margin-top: 5px;">
+            ⚠️ توکن در مرورگر شما ذخیره می‌شود.
+        </div>
+    </div>
+
+    <button class="btn" id="sendBtn" onclick="sendMessage()">ارسال پیام</button>
+    <div id="status"></div>
+</div>
+
+<script>
+    const CONFIG = {
+        fileName: 'ht.json',
+        maxImageSize: 200 * 1024 // 200KB
+    };
+
+    // المان‌های DOM
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const fileText = document.getElementById('fileText');
+    const statusDiv = document.getElementById('status');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    let selectedImageBase64 = null;
+
+    // تنظیمات فرم
+    const formFields = {
+        name: document.getElementById('name'),
+        username: document.getElementById('username'),
+        repo: document.getElementById('repo'),
+        token: document.getElementById('token')
+    };
+
+    // 1. بارگذاری تنظیمات ذخیره شده هنگام باز شدن صفحه
+    window.onload = function() {
+        const savedUsername = localStorage.getItem('ht_git_username');
+        const savedRepo = localStorage.getItem('ht_git_repo');
+        const savedToken = localStorage.getItem('ht_git_token');
+        const savedName = localStorage.getItem('ht_user_name');
+
+        if (savedUsername) formFields.username.value = savedUsername;
+        if (savedRepo) formFields.repo.value = savedRepo;
+        if (savedToken) formFields.token.value = savedToken;
+        if (savedName) formFields.name.value = savedName;
+
+        // اگر توکن وجود دارد، باکس تنظیمات را باز نشان بده (یا می‌توانید بسته نگه دارید)
+        if (savedToken) {
+            document.getElementById('settingsBox').classList.add('active');
+        }
+    };
+
+    // مدیریت انتخاب عکس
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            selectedImageBase64 = null;
+            preview.style.display = 'none';
+            fileText.textContent = 'انتخاب تصویر...';
+            return;
+        }
+
+        if (file.size > CONFIG.maxImageSize * 2) {
+            alert('تصویر خیلی بزرگ است.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            selectedImageBase64 = evt.target.result;
+            preview.src = selectedImageBase64;
+            preview.style.display = 'block';
+            fileText.textContent = file.name;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // تابع نمایش/مخفی کردن تنظیمات
+    function toggleSettings() {
+        const box = document.getElementById('settingsBox');
+        box.classList.toggle('active');
+    }
+
+    async function sendMessage() {
+        const name = formFields.name.value.trim();
+        const content = document.getElementById('content').value.trim();
+        const username = formFields.username.value.trim();
+        const repo = formFields.repo.value.trim();
+        const token = formFields.token.value.trim();
+
+        if (!name || !username || !repo || !token) {
+            statusDiv.innerHTML = '<span class="error">لطفا نام و تمام تنظیمات گیت‌هاب را وارد کنید.</span>';
+            return;
+        }
+        if (!content && !selectedImageBase64) {
+            statusDiv.innerHTML = '<span class="error">متن یا عکس خالی است.</span>';
+            return;
+        }
+
+        // ذخیره تنظیمات در LocalStorage
+        localStorage.setItem('ht_git_username', username);
+        localStorage.setItem('ht_git_repo', repo);
+        localStorage.setItem('ht_git_token', token);
+        localStorage.setItem('ht_user_name', name);
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'در حال ارسال...';
+        statusDiv.innerHTML = '';
+
+        try {
+            // 1. دریافت فایل موجود
+            const checkUrl = `https://api.github.com/repos/${username}/${repo}/contents/${CONFIG.fileName}`;
+            const checkRes = await fetch(checkUrl, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+
+            let existingData = [];
+            let sha = null;
+
+            if (checkRes.ok) {
+                const checkJson = await checkRes.json();
+                sha = checkJson.sha;
+                const binaryStr = atob(checkJson.content);
+                let bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                const jsonStr = new TextDecoder().decode(bytes);
+                if (jsonStr.trim()) {
+                    existingData = JSON.parse(jsonStr);
+                }
+            } else if (checkRes.status !== 404) {
+                throw new Error('خطا در دسترسی به فایل یا مخزن');
+            }
+
+            // 2. ساخت آیتم جدید (بدون رمزنگاری)
+            const newItem = {
+                name: name,
+                text: content,
+                image: selectedImageBase64,
+                date: new Date().toLocaleString('fa-IR'),
+                timestamp: Date.now()
+            };
+
+            existingData.push(newItem);
+
+            // 3. تبدیل به Base64 برای آپلود
+            const jsonString = JSON.stringify(existingData);
+            const base64Content = btoa(unescape(encodeURIComponent(jsonString)));
+
+            // 4. آپلود به گیت‌هاب
+            const uploadUrl = `https://api.github.com/repos/${username}/${repo}/contents/${CONFIG.fileName}`;
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: `New message from ${name}`,
+                    content: base64Content,
+                    sha: sha
+                })
+            });
+
+            if (uploadRes.ok) {
+                statusDiv.innerHTML = '<span class="success">✅ پیام با موفقیت ذخیره شد!</span>';
+                // پاک کردن فرم (فقط متن و عکس، تنظیمات باقی می‌مانند)
+                document.getElementById('content').value = '';
+                imageInput.value = '';
+                selectedImageBase64 = null;
+                preview.style.display = 'none';
+                fileText.textContent = 'انتخاب تصویر...';
+            } else {
+                const err = await uploadRes.text();
+                throw new Error(err);
+            }
+
+        } catch (error) {
+            statusDiv.innerHTML = `<span class="error">❌ خطا: ${error.message}</span>`;
+            console.error(error);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'ارسال پیام';
+        }
+    }
+</script>
+
+</body>
+</html>
